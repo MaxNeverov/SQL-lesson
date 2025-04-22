@@ -1,0 +1,1008 @@
+-- тут примеры решенных мной задач с тренажера sql-ex
+-- ////////////////////////////////////////////////////////////////////////////////////////////////
+-- Найдите производителей, которые производили бы как ПК
+-- со скоростью не менее 750 МГц, так и ПК-блокноты со скоростью не менее 750 МГц.
+-- Вывести: Maker
+
+-- select P.maker
+-- from Product P
+--          JOIN PC on P.model = PC.model
+-- where PC.speed>=750
+-- intersect
+-- select P.maker
+-- from Product P
+--          JOIN Laptop L on P.model = L.model
+-- where L.speed >= 750
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--                  Перечислите номера моделей любых типов, имеющих самую высокую цену
+-- по всей имеющейся в базе данных продукции.
+--
+-- with sel1 as
+-- (select PC.model,PC.price
+-- From PC
+-- UNION ALL
+-- select L.model,L.price
+-- From Laptop L
+-- UNION ALL
+-- select P.model,P.price
+-- From Printer P)
+--
+-- select model from sel1
+-- where price = (select max(price) From sel1)
+--
+    order by price desc
+limit 1
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--               Найдите производителей принтеров, которые производят ПК с наименьшим объемом RAM и с
+-- самым быстрым процессором среди всех ПК, имеющих наименьший объем RAM. Вывести: Maker
+--
+-- SELECT P.maker
+-- FROM Product P
+--          join (SELECT PC.model, MAX(PC.speed) speed
+--                FROM PC
+--                WHERE PC.ram IN (SELECT MIN(a.ram)
+--                                 FROM PC a)
+--                GROUP BY PC.model) t ON t.model = P.model
+-- where exists (select *
+--               from Printer Pr
+--                        join Product P2 ON P2.model = Pr.model
+--               where Pr.price = 400 AND P2.maker = P.maker)
+--
+--
+--           ////////////////////////////////////////////////////////////////////////////////////////////////
+--       Найдите среднюю цену ПК и ПК-блокнотов, выпущенных производителем A (латинская буква).
+-- Вывести: одна общая средняя цена.
+--
+-- select avg(AB.price)
+-- from (select PC.price
+--     from PC
+--     join Product P ON P.model = PC.model
+--     where P.maker = 'A'
+--     union all
+--     select L.price
+--     from Laptop L
+--     join Product P ON P.model = L.model
+--     where P.maker = 'A') AB
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Найдите средний размер диска ПК каждого из тех производителей, которые
+--     выпускают и принтеры. Вывести: maker, средний размер HD.
+--
+--     Select p.maker, avg(PC.hd)
+-- from Product p
+--     join PC ON PC.model = P.model
+-- where p.maker IN (Select P2.maker
+--     from Product P2
+--     join Printer Pr ON Pr.model = P2.model)
+-- group by  p.maker
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Используя таблицу Product, определить количество производителей, выпускающих по одной модели.
+--
+--     select count(AB.count)
+-- from (Select count(model) count
+--     from Product P
+--     group by maker
+--     having count(model) = 1) AB
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     В предположении, что приход и расход денег на каждом пункте приема фиксируется не чаще
+--     одного раза в день [т.е. первичный ключ (пункт, дата)], написать запрос с выходными данными
+--     (пункт, дата, приход, расход). Использовать таблицы Income_o и Outcome_o.
+--
+--     select AB.point, AB.date,
+--     //отдельные столбцы, где все NULL заменены на '----'
+--     CASE
+--     WHEN AB.inc IS NULL
+--     THEN '----'
+--     ELSE CAST(AB.inc AS CHAR(20))
+-- END inc1,
+--
+--  CASE
+--  WHEN AB.out IS NULL
+--  THEN '----'
+--  ELSE CAST(AB.out AS CHAR(20))
+-- END out1
+--
+-- from (Select Income_o.point, Income_o.date, Income_o.inc, Outcome_o.out
+-- from income_o
+-- left join outcome_o on income_o.point=outcome_o.point
+-- AND income_o.date=outcome_o.date
+-- union
+-- Select Outcome_o.point, Outcome_o.date, Income_o.inc, Outcome_o.out
+-- from outcome_o
+-- left join income_o on income_o.point=outcome_o.point
+-- AND income_o.date=outcome_o.date) AB
+-- order by point, date
+--
+-- ////////////////////////////////////////////////////////////////////////////////////////////////
+-- В предположении, что приход и расход денег на каждом пункте приема фиксируется произвольное
+-- число раз (первичным ключом в таблицах является столбец code), требуется получить таблицу,
+-- в которой каждому пункту за каждую дату выполнения операций будет соответствовать одна строка.
+-- Вывод: point, date, суммарный расход пункта за день (out), суммарный приход пункта за день (inc).
+-- Отсутствующие значения считать неопределенными (NULL).
+--
+-- Select A.point, A.date,B.outsum,  A.incsum
+-- from (select I.point, I.date, sum(inc) incsum
+--       from Income I
+--       group by I.point, I.date) A
+-- Left join (select O.point, O.date, sum(out) outsum
+--           from Outcome O
+--           group by O.point, O.date) B on A.date=B.date AND
+-- A.point=B.point
+--
+-- union
+--
+-- Select B2.point, B2.date,B2.outsum,  A2.incsum
+-- from (select O.point, O.date, sum(out) outsum
+--       from Outcome O
+--       group by O.point, O.date) B2
+--          Left join (select I.point, I.date, sum(inc) incsum
+--                     from Income I
+--                     group by I.point, I.date) A2 on A2.date=B2.date AND
+--                                                     A2.point=B2.point
+--
+--                                                         ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                                              Одной из характеристик корабля является половина куба калибра его главных орудий (mw).
+-- С точностью до 2 десятичных знаков определите среднее значение mw для кораблей каждой страны,
+-- у которой есть корабли в базе данных.
+--
+-- select CL.country,
+--        round(avg((CL.bore * CL.bore * CL.bore) / 2)::numeric, 2) MV
+-- from classes Cl
+--     join Outcomes O2 On O2.ship = Cl.class
+-- where NOT EXISTS (select *
+--     from ships s
+--     where s.name = Cl.class)
+-- group by CL.country
+--
+-- union
+--
+-- Select c.country,
+--        round(avg((c.bore * c.bore * c.bore) / 2)::numeric, 2) MW
+-- from ships S
+--          join classes C on C.class = S.class
+-- group by c.country
+--
+--              ////////////////////////////////////////////////////////////////////////////////////////////////
+--          По Вашингтонскому международному договору от начала 1922 г. запрещалось строить линейные
+-- корабли водоизмещением более 35 тыс.тонн. Укажите корабли, нарушившие этот договор
+-- (учитывать только корабли c известным годом спуска на воду). Вывести названия кораблей.
+--
+-- Select name
+-- from Ships s
+--     join classes c on c.class = s.class
+-- where launched >= 1922 AND launched IS NOT NULL AND displacement> 35000
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     В таблице Product найти модели, которые состоят только из цифр или только из латинских букв
+--     (A-Z, без учета регистра).Вывод: номер модели, тип модели.
+--
+--     select model, type
+-- from product
+-- where model NOT LIKE '%[^0-9]%' or model NOT LIKE '%[^a-z]%'
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Перечислите названия головных кораблей, имеющихся в базе данных (учесть корабли в Outcomes).
+--
+--     select c.class
+-- from classes c
+--     join ships s on s.name = c.class
+-- union
+-- select Cl.class
+-- from classes Cl
+--          join Outcomes O2 On O2.ship = Cl.class
+-- where NOT EXISTS (select * from ships s
+--                   where s.name = Cl.class )
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--           Найдите классы, в которые входит только один корабль из базы данных (учесть также корабли в Outcomes).
+--
+-- select class
+-- from (select cl.class, count(ship)
+--     from classes Cl
+--     join Outcomes O2 On O2.ship = Cl.class
+--     where NOT EXISTS (select *
+--     from ships s
+--     where s.name = Cl.class)
+--     group by cl.class
+--     union
+--     select s.class, count(name)
+--     from ships s
+--     join classes c on s.class = c.class
+--     group by s.class) AB
+-- where count = 1
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Найдите страны, имевшие когда-либо классы обычных боевых кораблей
+--     ('bb') и имевшие когда-либо классы крейсеров ('bc').
+--
+--     Select country
+-- from classes
+-- where type = 'bb'
+-- intersect
+-- Select country
+-- from classes
+-- where type = 'bc'
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--              Найдите корабли, `сохранившиеся для будущих сражений`; т.е. выведенные из строя в одной битве
+-- (damaged), они участвовали в другой, произошедшей позже
+--
+-- select ship
+-- from (Select ship, count (battle) FF
+--       from outcomes o
+--       group by ship
+--       having count (battle) >1) AB
+-- where EXISTS (Select *
+--               from outcomes o
+--               where result = 'damaged')
+-------------------------------------------------------------
+-- select ship
+-- from (select ship, result, date
+--       from outcomes O2
+--                join Battles B ON O2.battle = B.name
+--       where EXISTS (select ship
+--                     from (Select ship, count(battle) FF
+--                           from outcomes o
+--                           group by ship
+--                           having count(battle) > 1) AA
+--                     where AA.ship = O2.ship)) AD
+-- where EXISTS (select *
+--               from (select AC.ship, min(AC.date) mindat
+--                     from (select ship, result, date
+--                           from outcomes O2
+--                                    join Battles B ON O2.battle = B.name
+--                           where EXISTS (select ship
+--                                         from (Select ship, count(battle) FF
+--                                               from outcomes o
+--                                               group by ship
+--                                               having count(battle) > 1) AA
+--                                         where AA.ship = O2.ship)) AC
+--                     group by AC.ship) DD
+--               where DD.mindat = AD.date)
+--   AND result = 'damaged'
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--                Найти производителей, которые выпускают более одной модели, при этом все выпускаемые
+-- производителем модели являются продуктами одного типа.
+-- Вывести: maker, type
+--
+-- select maker, type
+-- from (select maker, count(model), type
+--       from Product P
+--       where maker IN (select maker
+--                       from (select maker, count(type) contType
+--                             from (Select maker, type
+--                                   from Product
+--                                   group by maker, type) A
+--                             group by maker
+--                             having count(type) = 1) B)
+--       group by maker, type
+--       having count(model) > 1) C
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+-- Для каждого производителя, у которого присутствуют модели хотя бы в одной из таблиц PC,
+-- Laptop или Printer, определить максимальную цену на его продукцию.
+-- Вывод: имя производителя, если среди цен на продукцию данного производителя присутствует
+-- NULL, то выводить для этого производителя NULL, иначе максимальную цену.
+--
+-- select maker, max(price)
+-- from (Select P.maker, P.type, PC.price
+--     from product p
+--     join PC ON PC.model = p.model
+--     where P.type = 'PC'
+--     union
+--     Select P.maker, P.type, L.price
+--     from product p
+--     join Laptop L ON L.model = p.model
+--     where P.type = 'Laptop'
+--     union
+--     Select P.maker, P.type, Pr.price
+--     from product p
+--     join Printer Pr ON Pr.model = p.model
+--     where P.type = 'Printer') A
+-- group by maker
+--
+-----------------------------------------------------------------------
+--
+-- select maker, mpr
+-- from (select maker, max(price) mpr
+--       from (Select P.maker, P.type, PC.price
+--             from product p join PC ON PC.model = p.model
+--             where P.type = 'PC'
+--             union
+--             Select P.maker, P.type, L.price
+--             from product p join Laptop L ON L.model = p.model
+--             where P.type = 'Laptop'
+--             union
+--             Select P.maker, P.type, Pr.price
+--             from product p join Printer Pr ON Pr.model = p.model
+--             where P.type = 'Printer') AD
+--       group by maker) B
+-- where NOT EXISTS (select distinct maker, price
+--                   from (Select P.maker, P.type, PC.price
+--                         from product p
+--                                  join PC ON PC.model = p.model
+--                         where P.type = 'PC' and price IS NULL
+--                         union
+--                         Select P.maker, P.type, L.price
+--                         from product p
+--                                  join Laptop L ON L.model = p.model
+--                         where P.type = 'Laptop' and price IS NULL
+--                         union
+--                         Select P.maker, P.type, Pr.price
+--                         from product p
+--                                  join Printer Pr ON Pr.model = p.model
+--                         where P.type = 'Printer' and price IS NULL) A
+--                   where B.maker = A.maker)
+-- union
+-- select distinct maker, price
+-- from (Select P.maker, P.type, PC.price
+--       from product p
+--                join PC ON PC.model = p.model
+--       where P.type = 'PC' and price IS NULL
+--       union
+--       Select P.maker, P.type, L.price
+--       from product p
+--                join Laptop L ON L.model = p.model
+--       where P.type = 'Laptop' and price IS NULL
+--       union
+--       Select P.maker, P.type, Pr.price
+--       from product p
+--                join Printer Pr ON Pr.model = p.model
+--       where P.type = 'Printer' and price IS NULL) A
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+-- Укажите сражения, которые произошли в годы, не совпадающие ни с одним из годов спуска кораблей на воду.
+--
+-- select name
+-- from (Select b.name, extract(year from b.date) years
+--     from battles b
+--     where not exists (select A.launched
+--     from (Select s.launched
+--     from ships s) A
+--     where A.launched = extract(year from b.date))) B
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Найдите названия всех кораблей в базе данных, начинающихся с буквы R.
+--
+--     select *
+-- from (Select name
+--     from ships
+--     union
+--     select ship
+--     from outcomes) A
+-- where name LIKE 'R%'
+--
+--
+--     Найдите названия всех кораблей в базе данных, состоящие из трех и более слов (например, King George V).
+--     Считать, что слова в названиях разделяются единичными пробелами, и нет концевых пробелов.
+--
+--     select *
+-- from (Select name
+--     from ships
+--     union
+--     select ship
+--     from outcomes) A
+-- where name LIKE '% % %'
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Для каждого корабля, участвовавшего в сражении при Гвадалканале (Guadalcanal),
+--     вывести название, водоизмещение и число орудий.
+--
+--     select name, displacement, numguns
+-- from (Select *
+--     from ships S
+--     join outcomes O ON S.name = O.ship
+--     where battle = 'Guadalcanal') A
+--     join Classes C ON A.class = C.class
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Определить страны, которые потеряли в сражениях все свои корабли.
+--
+--     select country
+-- from Classes C
+-- where not exists (select *
+--     from (select country
+--     from ships S
+--     join classes c ON S.class = c.class
+--     group by country) A
+--     where A.country = C.country)
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Найдите названия кораблей с орудиями калибра 16 дюймов (учесть корабли из таблицы Outcomes).
+--
+--     select name
+-- from ships S
+--     join Classes C ON C.class = S.class
+-- where bore = 16
+-- union
+-- select ship
+-- from outcomes o
+--          join Classes C ON C.class = o.ship
+-- where bore = 16
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--              Найдите сражения, в которых участвовали корабли класса Kongo из таблицы Ships.
+--
+-- select battle
+-- from (select s.class,o.battle
+--     from ships S
+--     join Classes C ON C.class = S.class
+--     join outcomes o on s.name = o.ship
+--     union
+--     select o.ship, o.battle
+--     from outcomes o
+--     join Classes C ON C.class = o.ship) A
+-- where A.class= 'Kongo'
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Найдите названия кораблей, имеющих наибольшее число орудий среди всех имеющихся кораблей такого
+--     же водоизмещения (учесть корабли из таблицы Outcomes)
+--
+-- select name
+-- from (select *,
+--              max(numguns) over (partition by displacement) as max_gun
+--       from (select s.name, c.numguns, c.displacement
+--             from ships S
+--                      join Classes C ON C.class = S.class
+--             union
+--             select o.ship, c.numguns, c.displacement
+--             from outcomes o
+--                      join Classes C ON C.class = o.ship) A)B
+-- where numguns = max_gun
+--
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--                 Определить названия всех кораблей из таблицы Ships, которые могут быть линейным японским кораблем,
+-- имеющим число главных орудий не менее девяти, калибр орудий менее 19 дюймов и водоизмещение
+-- не более 65 тыс.тонн
+--
+-- select name
+-- from ships S
+--          join Classes C ON C.class = S.class
+-- where country = 'Japan' AND numguns >=9 AND bore <19 AND displacement <= 65000
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                                                          Определите среднее число орудий для классов линейных кораблей.
+-- Получить результат с точностью до 2-х десятичных знаков.
+--
+-- select av
+-- from (select type, round(avg (numguns)::numeric, 2) av
+--     from (select s.name, c.numguns, c.type
+--     from ships S
+--     join Classes C ON C.class = S.class
+--     where type = 'bb'
+--     union
+--     select o.ship, c.numguns, c.type
+--     from outcomes o
+--     join Classes C ON C.class = o.ship) A
+--     group by type) B
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Для каждого класса определите год, когда был спущен на воду первый корабль этого класса.
+--     Если год спуска на воду головного корабля неизвестен,
+--     определите минимальный год спуска на воду кораблей этого класса. Вывести: класс, год.
+--
+--     select c.class, min(s.launched)
+-- from Classes C
+--     left join ships S ON C.class = S.class
+-- group by c.class
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Для каждого класса определите число кораблей этого класса, потопленных в сражениях.
+--     Вывести: класс и число потопленных кораблей.
+--
+--     select class, cnt
+-- from (select *,
+--     count(result)
+--     filter (where result = 'sunk')
+--     over (partition by class) as cnt
+--     from (select c.class,s.name, o.result
+--     from Classes C
+--     left join ships S ON C.class = S.class
+--     left join outcomes o ON S.name = o.ship
+--     union
+--     select c.class,s.name, o.result
+--     from Classes C
+--     left join ships S ON C.class = S.class
+--     left join outcomes o ON C.class = o.ship) A) D
+-- group by class, cnt
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Посчитать остаток денежных средств на каждом пункте приема для базы данных с отчетностью
+--     не чаще одного раза в день. Вывод: пункт, остаток
+--
+-- select ss.point, inc - out1 d
+-- from (SELECT i.point, SUM(inc) inc
+--       FROM Income_o i
+--       GROUP BY i.point
+--      ) ss
+--          join (SELECT o.point, SUM(out) out1
+--                FROM Outcome_o o
+--                GROUP BY o.point
+-- )dd ON ss.point = dd.point
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--                   ////////////////////////////////////////////////////////////////////////////////////////////////
+--                       ////////////////////////////////////////////////////////////////////////////////////////////////
+--                           ////////////////////////////////////////////////////////////////////////////////////////////////
+--                               ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                   ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                       ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                           ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                               ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                                   ////////////////////////////////////////////////////////////////////////////////////////////////
+--
+--                                                       ДОБАВЛЕНИЕ И ИЗМЕНЕНИЕ ДАННЫХ В ТАБЛИЦЕ DML
+ ----------------------------------------------------------------------------------
+-- добавлние в таблицу
+--
+-- insert into Product
+-- values ('Z', 4003, 'Printer'),
+--        ('Z', 4001, 'PC'),
+--        ('Z', 4002, 'Laptop')
+--
+----------------------------------------------------------------------------------
+--     добавлние в таблицу со значениями default
+--
+-- insert into PC
+-- values (22,4444,1200,DEFAULT,DEFAULT,DEFAULT,1350)
+--
+----------------------------------------------------------------------------------
+--     ДЕФОЛТНОЕ ЗНАЧЕНИЕ CD СТАВИТЬСЯ САМО СТОЛБЕЦ CD НИГДЕ УКАЗЫВАТЬ НЕ НАДО
+--
+-- insert into PC (code,model,speed,ram,hd,price)
+-- select min(code)+20 code,
+--        model+1000 model,
+--        max(speed) speed,
+--        max(ram)*2 ram,
+--        max(hd)*2 hd,
+--        max(price)/1.5 price
+-- from laptop
+-- group by model
+--
+----------------------------------------------------------------------------------
+--     Удалить из таблицы PC компьютеры, имеющие минимальный объем диска или памяти.
+--
+-- delete from PC
+-- where
+--     hd = (select min(hd)
+--     from PC) or
+--     ram = (select min(ram)
+--     from PC)
+----------------------------------------------------------------------------------
+--     Удалить все блокноты, выпускаемые производителями, которые не выпускают принтеры.
+--
+--     delete from laptop
+-- where model IN (select model
+--     from Product
+--     where maker not in (select maker
+--     from Product
+--     where type = 'Printer'
+--     group by maker))
+--
+----------------------------------------------------------------------------------
+--     Производство принтеров производитель A передал производителю Z. Выполнить соответствующее изменение
+--
+-- update Product
+-- set maker = 'Z'
+-- where maker = 'A' AND type = 'Printer'
+--
+----------------------------------------------------------------------------------
+--     Удалите из таблицы Ships все корабли, потопленные в сражениях.
+--
+-- delete ships
+-- where name IN (select ship
+--     from outcomes
+--     where result = 'sunk')
+--
+----------------------------------------------------------------------------------
+--     Измените данные в таблице Classes так, чтобы калибры орудий измерялись в
+--     сантиметрах (1 дюйм=2,5см), а водоизмещение в метрических тоннах (1
+--     метрическая тонна = 1,1 тонны). Водоизмещение вычислить с точностью до
+--     целых
+--
+-- update classes
+-- set bore = bore*2.5,
+--     displacement = round (displacement/1.1, 0)
+--
+----------------------------------------------------------------------------------
+--     Добавить в таблицу PC те модели ПК из Product, которые отсутствуют в таблице PC.
+--
+-- При этом модели должны иметь следующие характеристики:
+-- 1. Код равен номеру модели плюс максимальный код, который был до вставки.
+-- 2. Скорость, объем памяти и диска, а также скорость CD должны иметь максимальные
+-- характеристики среди всех имеющихся в таблице PC.
+-- 3. Цена должна быть средней среди всех ПК, имевшихся в таблице PC до вставки.
+--
+-- insert into PC (code,model, speed, ram, hd, cd,price)
+-- select
+--     model +(select max(code)
+--             from PC) code,
+--     model,
+--     (select max(speed)
+--      from PC) speed,
+--     (select max(ram)
+--      from PC) ram,
+--     (select max(hd)
+--      from PC) hd,
+--     (select max(len) +'x'
+--      from (select cd, substring(cd,1, len(cd)-1) len
+--            from PC) A) cd,
+--     (select avg(price)
+--      from PC) price
+-- from product
+-- where type = 'PC' and model not IN (select model from pc)
+--
+----------------------------------------------------------------------------------
+--     Из каждой группы ПК с одинаковым номером модели в таблице
+-- PC удалить все строки кроме строки с наибольшим для этой группы кодом (столбец code)
+--
+-- delete PC
+-- where code NOT IN (select code
+--     from (select max (code) code, model
+--     from pc
+--     group by model)A)NULL, то выводить для этого производителя NULL, иначе максимальную цену.
+--
+--     select maker, max(price)
+-- from (Select P.maker, P.type, PC.price
+--     from product p
+--     join PC ON PC.model = p.model
+--     where P.type = 'PC'
+--     union
+--     Select P.maker, P.type, L.price
+--     from product p
+--     join Laptop L ON L.model = p.model
+--     where P.type = 'Laptop'
+--     union
+--     Select P.maker, P.type, Pr.price
+--     from product p
+--     join Printer Pr ON Pr.model = p.model
+--     where P.type = 'Printer') A
+-- group by maker
+--
+-----------------------------------------------------------------------
+--
+-- select maker, mpr
+-- from (select maker, max(price) mpr
+--       from (Select P.maker, P.type, PC.price
+--             from product p join PC ON PC.model = p.model
+--             where P.type = 'PC'
+--             union
+--             Select P.maker, P.type, L.price
+--             from product p join Laptop L ON L.model = p.model
+--             where P.type = 'Laptop'
+--             union
+--             Select P.maker, P.type, Pr.price
+--             from product p join Printer Pr ON Pr.model = p.model
+--             where P.type = 'Printer') AD
+--       group by maker) B
+-- where NOT EXISTS (select distinct maker, price
+--                   from (Select P.maker, P.type, PC.price
+--                         from product p
+--                                  join PC ON PC.model = p.model
+--                         where P.type = 'PC' and price IS NULL
+--                         union
+--                         Select P.maker, P.type, L.price
+--                         from product p
+--                                  join Laptop L ON L.model = p.model
+--                         where P.type = 'Laptop' and price IS NULL
+--                         union
+--                         Select P.maker, P.type, Pr.price
+--                         from product p
+--                                  join Printer Pr ON Pr.model = p.model
+--                         where P.type = 'Printer' and price IS NULL) A
+--                   where B.maker = A.maker)
+-- union
+-- select distinct maker, price
+-- from (Select P.maker, P.type, PC.price
+--       from product p
+--                join PC ON PC.model = p.model
+--       where P.type = 'PC' and price IS NULL
+--       union
+--       Select P.maker, P.type, L.price
+--       from product p
+--                join Laptop L ON L.model = p.model
+--       where P.type = 'Laptop' and price IS NULL
+--       union
+--       Select P.maker, P.type, Pr.price
+--       from product p
+--                join Printer Pr ON Pr.model = p.model
+--       where P.type = 'Printer' and price IS NULL) A
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+-- Укажите сражения, которые произошли в годы, не совпадающие ни с одним из годов спуска кораблей на воду.
+--
+-- select name
+-- from (Select b.name, extract(year from b.date) years
+--     from battles b
+--     where not exists (select A.launched
+--     from (Select s.launched
+--     from ships s) A
+--     where A.launched = extract(year from b.date))) B
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Найдите названия всех кораблей в базе данных, начинающихся с буквы R.
+--
+--     select *
+-- from (Select name
+--     from ships
+--     union
+--     select ship
+--     from outcomes) A
+-- where name LIKE 'R%'
+--
+--
+--     Найдите названия всех кораблей в базе данных, состоящие из трех и более слов (например, King George V).
+--     Считать, что слова в названиях разделяются единичными пробелами, и нет концевых пробелов.
+--
+--     select *
+-- from (Select name
+--     from ships
+--     union
+--     select ship
+--     from outcomes) A
+-- where name LIKE '% % %'
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Для каждого корабля, участвовавшего в сражении при Гвадалканале (Guadalcanal),
+--     вывести название, водоизмещение и число орудий.
+--
+--     select name, displacement, numguns
+-- from (Select *
+--     from ships S
+--     join outcomes O ON S.name = O.ship
+--     where battle = 'Guadalcanal') A
+--     join Classes C ON A.class = C.class
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Определить страны, которые потеряли в сражениях все свои корабли.
+--
+--     select country
+-- from Classes C
+-- where not exists (select *
+--     from (select country
+--     from ships S
+--     join classes c ON S.class = c.class
+--     group by country) A
+--     where A.country = C.country)
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Найдите названия кораблей с орудиями калибра 16 дюймов (учесть корабли из таблицы Outcomes).
+--
+--     select name
+-- from ships S
+--     join Classes C ON C.class = S.class
+-- where bore = 16
+-- union
+-- select ship
+-- from outcomes o
+--          join Classes C ON C.class = o.ship
+-- where bore = 16
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--              Найдите сражения, в которых участвовали корабли класса Kongo из таблицы Ships.
+--
+-- select battle
+-- from (select s.class,o.battle
+--     from ships S
+--     join Classes C ON C.class = S.class
+--     join outcomes o on s.name = o.ship
+--     union
+--     select o.ship, o.battle
+--     from outcomes o
+--     join Classes C ON C.class = o.ship) A
+-- where A.class= 'Kongo'
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Найдите названия кораблей, имеющих наибольшее число орудий среди всех имеющихся кораблей такого
+--     же водоизмещения (учесть корабли из таблицы Outcomes)
+--
+-- select name
+-- from (select *,
+--              max(numguns) over (partition by displacement) as max_gun
+--       from (select s.name, c.numguns, c.displacement
+--             from ships S
+--                      join Classes C ON C.class = S.class
+--             union
+--             select o.ship, c.numguns, c.displacement
+--             from outcomes o
+--                      join Classes C ON C.class = o.ship) A)B
+-- where numguns = max_gun
+--
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--                 Определить названия всех кораблей из таблицы Ships, которые могут быть линейным японским кораблем,
+-- имеющим число главных орудий не менее девяти, калибр орудий менее 19 дюймов и водоизмещение
+-- не более 65 тыс.тонн
+--
+-- select name
+-- from ships S
+--          join Classes C ON C.class = S.class
+-- where country = 'Japan' AND numguns >=9 AND bore <19 AND displacement <= 65000
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                                                          Определите среднее число орудий для классов линейных кораблей.
+-- Получить результат с точностью до 2-х десятичных знаков.
+--
+-- select av
+-- from (select type, round(avg (numguns)::numeric, 2) av
+--     from (select s.name, c.numguns, c.type
+--     from ships S
+--     join Classes C ON C.class = S.class
+--     where type = 'bb'
+--     union
+--     select o.ship, c.numguns, c.type
+--     from outcomes o
+--     join Classes C ON C.class = o.ship) A
+--     group by type) B
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Для каждого класса определите год, когда был спущен на воду первый корабль этого класса.
+--     Если год спуска на воду головного корабля неизвестен,
+--     определите минимальный год спуска на воду кораблей этого класса. Вывести: класс, год.
+--
+--     select c.class, min(s.launched)
+-- from Classes C
+--     left join ships S ON C.class = S.class
+-- group by c.class
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Для каждого класса определите число кораблей этого класса, потопленных в сражениях.
+--     Вывести: класс и число потопленных кораблей.
+--
+--     select class, cnt
+-- from (select *,
+--     count(result)
+--     filter (where result = 'sunk')
+--     over (partition by class) as cnt
+--     from (select c.class,s.name, o.result
+--     from Classes C
+--     left join ships S ON C.class = S.class
+--     left join outcomes o ON S.name = o.ship
+--     union
+--     select c.class,s.name, o.result
+--     from Classes C
+--     left join ships S ON C.class = S.class
+--     left join outcomes o ON C.class = o.ship) A) D
+-- group by class, cnt
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--     Посчитать остаток денежных средств на каждом пункте приема для базы данных с отчетностью
+--     не чаще одного раза в день. Вывод: пункт, остаток
+--
+-- select ss.point, inc - out1 d
+-- from (SELECT i.point, SUM(inc) inc
+--       FROM Income_o i
+--       GROUP BY i.point
+--      ) ss
+--          join (SELECT o.point, SUM(out) out1
+--                FROM Outcome_o o
+--                GROUP BY o.point
+-- )dd ON ss.point = dd.point
+--
+--     ////////////////////////////////////////////////////////////////////////////////////////////////
+--                   ////////////////////////////////////////////////////////////////////////////////////////////////
+--                       ////////////////////////////////////////////////////////////////////////////////////////////////
+--                           ////////////////////////////////////////////////////////////////////////////////////////////////
+--                               ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                   ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                       ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                           ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                               ////////////////////////////////////////////////////////////////////////////////////////////////
+--                                                   ////////////////////////////////////////////////////////////////////////////////////////////////
+--
+--                                                       ДОБАВЛЕНИЕ И ИЗМЕНЕНИЕ ДАННЫХ В ТАБЛИЦЕ DML
+ ----------------------------------------------------------------------------------
+-- добавлние в таблицу
+--
+-- insert into Product
+-- values ('Z', 4003, 'Printer'),
+--        ('Z', 4001, 'PC'),
+--        ('Z', 4002, 'Laptop')
+--
+----------------------------------------------------------------------------------
+--     добавлние в таблицу со значениями default
+--
+-- insert into PC
+-- values (22,4444,1200,DEFAULT,DEFAULT,DEFAULT,1350)
+--
+----------------------------------------------------------------------------------
+--     ДЕФОЛТНОЕ ЗНАЧЕНИЕ CD СТАВИТЬСЯ САМО СТОЛБЕЦ CD НИГДЕ УКАЗЫВАТЬ НЕ НАДО
+--
+-- insert into PC (code,model,speed,ram,hd,price)
+-- select min(code)+20 code,
+--        model+1000 model,
+--        max(speed) speed,
+--        max(ram)*2 ram,
+--        max(hd)*2 hd,
+--        max(price)/1.5 price
+-- from laptop
+-- group by model
+--
+----------------------------------------------------------------------------------
+--     Удалить из таблицы PC компьютеры, имеющие минимальный объем диска или памяти.
+--
+-- delete from PC
+-- where
+--     hd = (select min(hd)
+--     from PC) or
+--     ram = (select min(ram)
+--     from PC)
+----------------------------------------------------------------------------------
+--     Удалить все блокноты, выпускаемые производителями, которые не выпускают принтеры.
+--
+--     delete from laptop
+-- where model IN (select model
+--     from Product
+--     where maker not in (select maker
+--     from Product
+--     where type = 'Printer'
+--     group by maker))
+--
+----------------------------------------------------------------------------------
+--     Производство принтеров производитель A передал производителю Z. Выполнить соответствующее изменение
+--
+-- update Product
+-- set maker = 'Z'
+-- where maker = 'A' AND type = 'Printer'
+--
+----------------------------------------------------------------------------------
+--     Удалите из таблицы Ships все корабли, потопленные в сражениях.
+--
+-- delete ships
+-- where name IN (select ship
+--     from outcomes
+--     where result = 'sunk')
+--
+----------------------------------------------------------------------------------
+--     Измените данные в таблице Classes так, чтобы калибры орудий измерялись в
+--     сантиметрах (1 дюйм=2,5см), а водоизмещение в метрических тоннах (1
+--     метрическая тонна = 1,1 тонны). Водоизмещение вычислить с точностью до
+--     целых
+--
+-- update classes
+-- set bore = bore*2.5,
+--     displacement = round (displacement/1.1, 0)
+--
+----------------------------------------------------------------------------------
+--     Добавить в таблицу PC те модели ПК из Product, которые отсутствуют в таблице PC.
+--
+-- При этом модели должны иметь следующие характеристики:
+-- 1. Код равен номеру модели плюс максимальный код, который был до вставки.
+-- 2. Скорость, объем памяти и диска, а также скорость CD должны иметь максимальные
+-- характеристики среди всех имеющихся в таблице PC.
+-- 3. Цена должна быть средней среди всех ПК, имевшихся в таблице PC до вставки.
+--
+-- insert into PC (code,model, speed, ram, hd, cd,price)
+-- select
+--     model +(select max(code)
+--             from PC) code,
+--     model,
+--     (select max(speed)
+--      from PC) speed,
+--     (select max(ram)
+--      from PC) ram,
+--     (select max(hd)
+--      from PC) hd,
+--     (select max(len) +'x'
+--      from (select cd, substring(cd,1, len(cd)-1) len
+--            from PC) A) cd,
+--     (select avg(price)
+--      from PC) price
+-- from product
+-- where type = 'PC' and model not IN (select model from pc)
+--
+----------------------------------------------------------------------------------
+--     Из каждой группы ПК с одинаковым номером модели в таблице
+-- PC удалить все строки кроме строки с наибольшим для этой группы кодом (столбец code)
+--
+-- delete PC
+-- where code NOT IN (select code
+--     from (select max (code) code, model
+--     from pc
+--     group by model)A)
